@@ -1,0 +1,31 @@
+diff --git a/lib/anubis.go b/lib/anubis.go
+index b9f9361..20ef868 100644
+--- a/lib/anubis.go
++++ b/lib/anubis.go
+@@ -336,11 +336,21 @@ func (s *Server) maybeReverseProxy(w http.ResponseWriter, r *http.Request, httpS
+ 		return
+ 	}
+ 
+-	if s.opts.JWTRestrictionHeader != "" && claims["restriction"] != internal.SHA256sum(r.Header.Get(s.opts.JWTRestrictionHeader)) {
+-		lg.DebugContext(r.Context(), "JWT restriction header is invalid")
+-		s.ClearCookie(w, CookieOpts{Path: cookiePath, Host: r.Host})
+-		s.RenderIndex(w, r, cr, rule, httpStatusOnly)
+-		return
++	if s.opts.JWTRestrictionHeader != "" {
++		headerValue := r.Header.Get(s.opts.JWTRestrictionHeader)
++		requestRestriction := internal.SHA256sum(headerValue)
++		if claims["restriction"] != requestRestriction {
++			lg.DebugContext(r.Context(), "JWT restriction header does not match the value bound to the JWT; issuing a new challenge",
++				"challenge", claims["challenge"],
++				"restriction_header", s.opts.JWTRestrictionHeader,
++				"restriction_header_present", headerValue != "",
++				"jwt_restriction", claims["restriction"],
++				"request_restriction", requestRestriction,
++			)
++			s.ClearCookie(w, CookieOpts{Path: cookiePath, Host: r.Host})
++			s.RenderIndex(w, r, cr, rule, httpStatusOnly)
++			return
++		}
+ 	}
+ 
+ 	r.Header.Add("X-Anubis-Status", "PASS")
